@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Application</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+ 
+</head>
+<body>
+    <div class="chat-wrapper">
+        <h1 class="chat-title">Chat Application</h1>
+
+       <!-- Ducument Upload -->
+        <section>
+            <h2>Upload Document</h2>
+            <input type="file" id="file" />
+            <button onclick="uploadDocument()">Upload</button>
+        </section>
+
+        <!-- Chat Display -->
+        <div id="chat-container" class="chat-container"></div>
+
+        <!-- Chat Input -->
+        <form id="chat-form" class="chat-form">
+            <textarea id="user-input" class="chat-input" placeholder="Type your message..." rows="3" required></textarea>
+            <button type="submit" class="chat-submit-button">Send</button>
+        </form>
+    </div>
+
+
+    <script>
+        async function uploadDocument() {
+            const fileInput = document.getElementById('file');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('Please select a file to upload.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+            alert(data.message || data.error);
+        }
+
+        // Chat
+        document.addEventListener("DOMContentLoaded", () => {
+            const form = document.getElementById("chat-form");
+            const inputField = document.getElementById("user-input");
+            const chatContainer = document.getElementById("chat-container");
+
+            // Handle form submission
+            form.addEventListener("submit", async (event) => {
+                event.preventDefault();
+
+                const userMessage = inputField.value.trim();
+                if (!userMessage) return; // Ignore empty input
+
+                const timestamp = new Date().toLocaleTimeString();
+
+                // Append user message to chat
+                appendMessage("user", userMessage, timestamp);
+
+                // Clear the input field
+                inputField.value = "";
+
+                try {
+                    // Send the user message to the server
+                    const response = await fetch("/", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ prompt: userMessage }), // Pass 'prompt' as JSON
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+
+                        // Ensure the response is correctly displayed
+                        if (data.response) {
+                            appendMessage("bot", data.response, timestamp);
+                        } else {
+                            appendMessage("bot", "Error: Response format is invalid.", timestamp);
+                        }
+                    } else {
+                        appendMessage("bot", "Error: Unable to get a response from the server.", timestamp);
+                    }
+                } catch (error) {
+                    appendMessage("bot", "Error: Something went wrong. Please try again later.", timestamp);
+                }
+
+                // Scroll to the bottom of the chat container
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            });
+
+            // Function to append messages to the chat container
+            function appendMessage(sender, message, timestamp) {
+                const messageElement = document.createElement("div");
+                messageElement.classList.add("message", `${sender}-message`);
+                messageElement.innerHTML = `<span class="timestamp">(${timestamp})</span> <span class="content">${message}</span>`;
+                chatContainer.appendChild(messageElement);
+            }
+        });
+    </script>
+</body>
+</html>
