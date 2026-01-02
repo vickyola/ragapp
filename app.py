@@ -134,12 +134,13 @@ def similarity_search(prompt, db_directory="./chroma_vectorstore"):
             print(f"Page Content: {doc.page_content}")
             print(f"Metadata: {doc.metadata}")
             print(f"Score: {score}")
-                    
-        if doc.page_content:
-            return doc.page_content
-        else:
-            print("No relevant documents found.")
-            return None
+
+
+        contents = [doc.page_content for doc, _ in results]
+
+    # Option 1: return as single string (recommended for LLM context)
+        return "\n\n---\n\n".join(contents)
+
 
     except Exception as e:
         print(f"Error during similarity search: {e}")
