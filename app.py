@@ -23,7 +23,6 @@ load_dotenv()
 app = Flask(__name__)
 
 # Change here!
-# Directory für Documente (Annahme pdf)
 app.config['UPLOAD_FOLDER'] = "/chat/uploads"
 
 # OpenAI API Key 
@@ -31,11 +30,6 @@ openapi_key =  os.getenv("OPENAI_API_KEY")
 rolle = "Du bist ein freundlicher Assistent. Du recherchierst Informationen und Beantwortest Fragen. Du Antwortest nur auf Basis der dir bereit stehenden Informationen und erfindest nichts dazu und Antwortest im JSON Format."
 # embedding_function
 openai_ef = OpenAIEmbeddings(api_key=openapi_key , model="text-embedding-ada-002")
-
-
-# test_text = "This is a test chunk."
-# test_embedding = openai_ef.embed_query(test_text)
-# print(f"Test embedding for a sample chunk: {test_embedding[:5]}")
 
 # # Chroma Database
 def clean_vector_store(db_directory="./chroma_vectorstore", collection_name="Contextdaten", embedding_function=None):
@@ -82,25 +76,18 @@ def vectordb(file_path, db_directory="./chroma_vectorstore"):
 
         # Load the Chroma vector store
         db = Chroma( collection_name="Contextdaten", embedding_function=embeddings, persist_directory=db_directory)
-        #db.delete_collection()
 
         # Extract file name and check if it exists in the vector store
         file_name = os.path.basename(absolute_file_path)
-
-        # Optional (doppelter Upload vermeiden)
-        # # Check if the file exists by performing a similarity search
-        # test_query = f"Check if document {file_name} exists."
-        # results = db.similarity_search(test_query, k=1)
-
-        # if results and any(file_name in result.metadata.get("source", "") for result in results):
-        #     print(f"Document '{file_name}' is already in the vector store. Skipping processing.")
-        #     return jsonify({'message': f"Document '{file_name}' already exists in the vector store."})
-
+       
         print(f"Adding document '{file_name}' to the vector store...")
 
         # Load the document and split it into chunks
-        loader = PyPDFLoader(file_path)
-        #loader = PyPDFDirectoryLoader(DATA_PATH) #full directory
+       # loader = PyPDFLoader(file_path)
+
+        loader = PyPDFLoader(str(absolute_file_path))
+
+
         documents = loader.load()
         # try differnt Text splitters
         text_splitter = CharacterTextSplitter(chunk_size=1500, chunk_overlap=300)
@@ -126,7 +113,6 @@ def vectordb(file_path, db_directory="./chroma_vectorstore"):
         print(f"Error during processing: {e}")
         return jsonify({'error': str(e)}), 500
 
-# ALternativ Term-based matching (keywords, term statistics)  oder Hybrid
 def similarity_search(prompt, db_directory="./chroma_vectorstore"):
     """
     Performs a similarity search using a user-provided prompt.
@@ -141,7 +127,6 @@ def similarity_search(prompt, db_directory="./chroma_vectorstore"):
                
         # Embed prompt
         prompt_embedding = embeddings.embed_query(prompt)
-        #results = db.similarity_search_by_vector(prompt_embedding,  k=3)
         results = db.similarity_search_by_vector_with_relevance_scores(prompt_embedding, k=3)
 
         
@@ -161,13 +146,8 @@ def similarity_search(prompt, db_directory="./chroma_vectorstore"):
         return None
     
 def get_completion(prompt):
-    print(prompt) 
-    # Nutzung AzureOpenAI:
-    # client = AzureOpenAI(
-    #     azure_endpoint =  "https://dapopenai-sweden.openai.azure.com/",
-    #     api_key = AzureOpenAI_key,
-    #     api_version = "2024-05-01-preview",
-    #     )
+    print(prompt) #debug
+
     search_result= similarity_search(prompt)
 
     client = OpenAI()
@@ -177,7 +157,6 @@ def get_completion(prompt):
                     temperature = 0.3,
                     messages=[
                     {"role": "system", "content": rolle },
-                       # {"role": "user", "content": prompt} # switch easy to normal chat without rag :)
                         {"role": "user", "content": "Beantworte diese user query: " + prompt + " mit dem folgendem context: " + str(search_result)+ "wenn du die Antwort auf die Frage nicht im context findest erfinde nichts."}
 
                     ]
